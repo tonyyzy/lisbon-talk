@@ -1,0 +1,419 @@
+---
+theme: "white"
+transition: "none"
+highlightTheme: "monokai"
+slideNumber: true
+title: "Lisbon"
+enableTitleFooter: false
+---
+
+<style>
+    .reveal h1, .reveal h2, .reveal h3, .reveal h4, .reveal h5 {
+      text-transform: none;
+    }
+
+    .reveal p {
+      font-size: 0.8em;
+      vertical-align: top;
+    }
+
+    .reveal li {
+      font-size: 0.8em;
+      vertical-align: top;
+    }
+
+    .reveal section img {
+      background:none;
+      border:none;
+      box-shadow:none;
+    }
+
+    table, th, td {
+      border: 0.2px solid black;
+      border-collapse: collapse;
+      font-size: 0.7em;
+    }
+
+    code {
+      color: brown;
+    }
+
+    .reveal pre{
+      font-size: 0.4em;
+      line-height: 1.4em;
+      width: 95%;
+    }
+
+    .reveal pre code{
+      max-height: 550px;
+    }
+</style>
+
+# Speed Up SVM Some More with Rust
+
+<p style="text-align:right">Tony Yang (Arabesque AI)</p>
+<p style="text-align:right"><svg style="width:24px;height:24px" viewBox="0 0 24 24" transform="translate(-10 3) scale(2 2)">
+<path fill="currentColor" d="M12,2A10,10 0 0,0 2,12C2,16.42 4.87,20.17 8.84,21.5C9.34,21.58 9.5,21.27 9.5,21C9.5,20.77 9.5,20.14 9.5,19.31C6.73,19.91 6.14,17.97 6.14,17.97C5.68,16.81 5.03,16.5 5.03,16.5C4.12,15.88 5.1,15.9 5.1,15.9C6.1,15.97 6.63,16.93 6.63,16.93C7.5,18.45 8.97,18 9.54,17.76C9.63,17.11 9.89,16.67 10.17,16.42C7.95,16.17 5.62,15.31 5.62,11.5C5.62,10.39 6,9.5 6.65,8.79C6.55,8.54 6.2,7.5 6.75,6.15C6.75,6.15 7.59,5.88 9.5,7.17C10.29,6.95 11.15,6.84 12,6.84C12.85,6.84 13.71,6.95 14.5,7.17C16.41,5.88 17.25,6.15 17.25,6.15C17.8,7.5 17.45,8.54 17.35,8.79C18,9.5 18.38,10.39 18.38,11.5C18.38,15.32 16.04,16.16 13.81,16.41C14.17,16.72 14.5,17.33 14.5,18.26C14.5,19.6 14.5,20.68 14.5,21C14.5,21.27 14.66,21.59 15.17,21.5C19.14,20.16 22,16.42 22,12A10,10 0 0,0 12,2Z" />
+</svg>:  <a href="https://www.linkedin.com/in/tonyyzy" target="_blank" rel="noopener noreferrer">tonyyzy</a>
+</p>
+
+<p style="text-align:right"><svg style="width:24px;height:24px" viewBox="0 0 24 24" transform="translate(-10 3) scale(2 2)">
+<path fill="currentColor" d="M19 3A2 2 0 0 1 21 5V19A2 2 0 0 1 19 21H5A2 2 0 0 1 3 19V5A2 2 0 0 1 5 3H19M18.5 18.5V13.2A3.26 3.26 0 0 0 15.24 9.94C14.39 9.94 13.4 10.46 12.92 11.24V10.13H10.13V18.5H12.92V13.57C12.92 12.8 13.54 12.17 14.31 12.17A1.4 1.4 0 0 1 15.71 13.57V18.5H18.5M6.88 8.56A1.68 1.68 0 0 0 8.56 6.88C8.56 5.95 7.81 5.19 6.88 5.19A1.69 1.69 0 0 0 5.19 6.88C5.19 7.81 5.95 8.56 6.88 8.56M8.27 18.5V10.13H5.5V18.5H8.27Z" />
+</svg>: <a href="https://github.com/tonyyzy" target="_blank" rel="noopener noreferrer">tonyyzy</a></p>
+
+<p style="text-align:right">
+<svg style="width:24px;height:24px" viewBox="0 0 24 24" transform="translate(-10 3) scale(2 2)">
+<path fill="currentColor" d="M22.46,6C21.69,6.35 20.86,6.58 20,6.69C20.88,6.16 21.56,5.32 21.88,4.31C21.05,4.81 20.13,5.16 19.16,5.36C18.37,4.5 17.26,4 16,4C13.65,4 11.73,5.92 11.73,8.29C11.73,8.63 11.77,8.96 11.84,9.27C8.28,9.09 5.11,7.38 3,4.79C2.63,5.42 2.42,6.16 2.42,6.94C2.42,8.43 3.17,9.75 4.33,10.5C3.62,10.5 2.96,10.3 2.38,10C2.38,10 2.38,10 2.38,10.03C2.38,12.11 3.86,13.85 5.82,14.24C5.46,14.34 5.08,14.39 4.69,14.39C4.42,14.39 4.15,14.36 3.89,14.31C4.43,16 6,17.26 7.89,17.29C6.43,18.45 4.58,19.13 2.56,19.13C2.22,19.13 1.88,19.11 1.54,19.07C3.44,20.29 5.7,21 8.12,21C16,21 20.33,14.46 20.33,8.79C20.33,8.6 20.33,8.42 20.32,8.23C21.16,7.63 21.88,6.87 22.46,6Z" />
+</svg>: <a href="https://twitter.com/tony_yzy" target="_blank" rel="noopener noreferrer">tony_yzy</a>
+</p>
+
+<p style="text-align:right">Slides: <a href="https://tonyyzy.github.io/lisbon-talk" target="_blank" rel="noopener noreferrer">tonyyzy.github.io/lisbon-talk</a></p>
+
+<aside class="notes">
+Hi everyone, today I'll talk about a project I completed last year, during my internship at arabesque AI.
+</aside>
+
+---
+
+## Background
+
+- Use machine learning models to analyse stock market trends {.fragment .fade-in}
+- Python machine learning library `scikit-learn` {.fragment .fade-in}
+- Support vector machine (SVM) in `scikit-learn` binds to `liblinear` {.fragment .fade-in}
+
+<aside class="notes">
+Arabesque is an asset management company and we use a variety of classical machine learning and deep learning techniques to analyse stock market trends.
+
+Part of my work was to look for ways to reduce our models training and inference time.
+
+We used Scikit learn for most of the classical models and SVM takes the longest training time in our workflow.
+
+Intel has an optimised library for scikit learn but they didn't include linearSVC models.
+
+It could be a dead end but curiousity drove me to peek under the cover and look into the underlying C++ library that scikit learn uses.
+And I realised there were some opportunities for optimisation.
+
+So without further ado, I'll present you the project outcome first.
+
+</aside>
+
+---
+
+## Lisbon
+
+- Reimplementation of `liblinear`'s L2-regularised hinge-loss routine in **Rust** 🦀 {.fragment .fade-in}
+- Faithfully reproduce `scikit-learn`'s results {.fragment .fade-in}
+- Minimal memory overhead {.fragment .fade-in}
+- 20-30% faster than `scikit-learn` {.fragment .fade-in}
+
+<aside class="notes">
+In project lisbon, I reimplemented one of liblinear's subroutine in Rust.
+Lisbon faithfully reproduce scikit learn's results and incurs minimal memory overhead.
+We reduce the memory usage by half in some big datasets compared to liblinear.
+And finally, we achieved a speed up of 20-30%.
+</aside>
+
+--
+
+### How's it faster
+
+1. `liblinear` uses sparse matrix representation for the dot/norm operations which is inefficient for our use case {.fragment .fade-in}
+
+2. By reading NumPy's underneath C array directly there’s no need to copy/duplicate data so saves memory {.fragment .fade-in}
+
+3. Specialised. Some array reads and computations are optimised away as we know the values for our specific problem {.fragment .fade-in}
+
+<aside class="notes">
+Lisbon is faster basically because of these three points
+
+I will talk about matrix memory representation in a bit more detail
+
+I will explain where the memory saving and speed up come from in the rest of the talk.
+It won't be deeply technical and I will spend some time talk about this porting and tooling experience as well.
+
+</aside>
+
+---
+
+## Support Vector Machine
+
+<img src="https://upload.wikimedia.org/wikipedia/commons/7/72/SVM_margin.png" alt="SVM margin illustration" height="400"/>
+
+<p style="font-size:16px"><a href="https://commons.wikimedia.org/wiki/File:SVM_margin.png">Wikipedia. 2022. "Support vector machine."</a></p>
+
+<aside class="notes">
+For people unfamiliar with SVM here, I will give a very brief introduction for context.
+
+Essentially, SVM is a classification technique.
+
+We have datapoints belong to differnt classes and our goal is to find the line that separates the points into two groups.
+
+</aside>
+
+---
+
+### Matrix Operations
+
+- Matrix operations take majority of the CPU-cycles {.fragment .fade-in}
+
+- In SVM's coordinate descent algorithm, matrix/vector dot product is a hot path to optimise {.fragment .fade-in}
+
+--
+
+### Matrix Representation in Memory
+
+<table>
+      <tr>
+        <td style="background-color:lightyellow">a<sub>11</sub></td>
+        <td style="background-color:lightyellow">a<sub>12</sub></td>
+        <td style="background-color:lightyellow">a<sub>13</sub></td>
+        <td style="background-color:lightyellow">a<sub>14</sub></td>
+      </tr>
+      <tr>
+        <td style="background-color:lightblue">a<sub>21</sub></td>
+        <td style="background-color:lightblue">a<sub>22</sub></td>
+        <td style="background-color:lightblue">a<sub>23</sub></td>
+        <td style="background-color:lightblue">a<sub>24</sub></td>
+      </tr>
+      <tr>
+        <td style="background-color:lightgreen">a<sub>31</sub></td>
+        <td style="background-color:lightgreen">a<sub>32</sub></td>
+        <td style="background-color:lightgreen">a<sub>33</sub></td>
+        <td style="background-color:lightgreen">a<sub>34</sub></td>
+      </tr>
+      <tr>
+        <td style="background-color:lightpink">a<sub>41</sub></td>
+        <td style="background-color:lightpink">a<sub>42</sub></td>
+        <td style="background-color:lightpink">a<sub>43</sub></td>
+        <td style="background-color:lightpink">a<sub>44</sub></td>
+      </tr>
+    </table>
+
+--
+
+### Matrix Representation in Memory
+
+- But memory address is one-dimensional
+- Row-major (C style) {.fragment .fade-in data-fragment-index="0"}
+<table class="fragment fade-in" data-fragment-index="0">
+  <tr>
+    <td style="background-color:lightyellow">a<sub>11</sub></td>
+    <td style="background-color:lightyellow">a<sub>12</sub></td>
+    <td style="background-color:lightyellow">a<sub>13</sub></td>
+    <td style="background-color:lightyellow">a<sub>14</sub></td>
+    <td style="background-color:lightblue">a<sub>21</sub></td>
+    <td style="background-color:lightblue">a<sub>22</sub></td>
+    <td style="background-color:lightblue">a<sub>23</sub></td>
+    <td style="background-color:lightblue">a<sub>24</sub></td>
+    <td style="background-color:lightgreen">a<sub>31</sub></td>
+    <td style="background-color:lightgreen">a<sub>32</sub></td>
+    <td style="background-color:lightgreen">a<sub>33</sub></td>
+    <td style="background-color:lightgreen">a<sub>34</sub></td>
+    <td style="background-color:lightpink">a<sub>41</sub></td>
+    <td style="background-color:lightpink">a<sub>42</sub></td>
+    <td style="background-color:lightpink">a<sub>43</sub></td>
+    <td style="background-color:lightpink">a<sub>44</sub></td>
+  </tr>
+</table>
+
+- Column-major (Fortran style/pandas maybe) {.fragment .fade-in data-fragment-index="1"}
+<table class="fragment fade-in" data-fragment-index="1">
+  <tr>
+    <td style="background-color:lightyellow">a<sub>11</sub></td>
+    <td style="background-color:lightblue">a<sub>21</sub></td>
+    <td style="background-color:lightgreen">a<sub>31</sub></td>
+    <td style="background-color:lightpink">a<sub>41</sub></td>
+    <td style="background-color:lightyellow">a<sub>12</sub></td>
+    <td style="background-color:lightblue">a<sub>22</sub></td>
+    <td style="background-color:lightgreen">a<sub>32</sub></td>
+    <td style="background-color:lightpink">a<sub>42</sub></td>
+    <td style="background-color:lightyellow">a<sub>13</sub></td>
+    <td style="background-color:lightblue">a<sub>23</sub></td>
+    <td style="background-color:lightgreen">a<sub>33</sub></td>
+    <td style="background-color:lightpink">a<sub>43</sub></td>
+    <td style="background-color:lightyellow">a<sub>14</sub></td>
+    <td style="background-color:lightblue">a<sub>24</sub></td>
+    <td style="background-color:lightgreen">a<sub>34</sub></td>
+    <td style="background-color:lightpink">a<sub>44</sub></td>
+  </tr>
+</table>
+
+- Sparse matrix representation (`liblinear`) {.fragment .fade-in data-fragment-index="2"}
+<table class="fragment fade-in" data-fragment-index="2">
+  <tr>
+    <td style="background-color:lightyellow">(1, a<sub>11</sub>)</td>
+    <td style="background-color:lightyellow">(-1, null)</td>
+    <td style="background-color:lightblue">(-1, null)</td>
+    <td style="background-color:lightgreen">(-1, null)</td>
+    <td style="background-color:lightpink">(4, a<sub>44</sub>)</td>
+    <td style="background-color:lightpink">(-1, null)</td>
+  </tr>
+</table>
+
+--
+
+#### Matrix Representation in Memory
+
+- Our encoded data is not sparse at all (~0.007% of values are 0.0) {.fragment .fade-in}
+
+- `scikit-learn` needs to convert the dense matrix to sparse representation then pass to `liblinear` {.fragment .fade-in}
+
+- This takes time and a lot of additional memory (~1.5x because of the index) {.fragment .fade-in}
+
+- `lisbon` reads the memory directly without making a copy, Rust/PyO3 enforces compile time guarantee that the memory is read-only {.fragment .fade-in}
+
+--
+
+## Matrix Operations in Rust
+
+```rust
+pub struct BLASOperator;
+
+impl BLASOperator {
+    #[inline]
+    pub fn nrm2_sq(x: &[f64]) -> f64 {
+        x.iter().map(|a| a * a).sum()
+    }
+
+    #[inline]
+    pub fn dot(s: &[f64], x: &[f64]) -> f64 {
+        s.iter().zip(x.iter()).map(|(a, b)| a * b).sum()
+    }
+
+    #[inline]
+    pub fn axpy(a: f64, x: &[f64], y: &mut [f64]) {
+        for (i, &j) in y.iter_mut().zip(x.iter()) {
+            *i = a.mul_add(j, *i)
+        }
+    }
+}
+```
+
+--
+
+### SIMD and Cache Efficiency
+
+- Single Instruction Multiple Data {.fragment .fade-in}
+- Calculate multiple operations simultaneously {.fragment .fade-in}
+- Dense representation allows SIMD operations (via auto-vectorisation) {.fragment .fade-in}
+- Row-major densely packed C-style matrix representation allows efficient use of cache lines {.fragment .fade-in}
+
+---
+
+### Benchmark
+
+- small: 48842 rows of data and 14 features.
+- medium: 210447 rows of data and 1000 features.
+- large: 747922 rows of data and 1000 features.
+
+<!-- prettier-ignore-start -->
+|                               |  Small               || Medium                ||   Large               ||
+| :---------------------------: |:------: | :---------: |:-------: | :---------: | :------: | :---------: |
+|            library            |time (s) | memory (MB) | time (s) | memory (MB) | time (s) | memory (MB) |
+|  `lisbon` with `cpu=native`   | 3.725   |    127.9    |  25.569  |   2539.4    |  50.791  |   8742.1    |
+| `lisbon` without `cpu=native` | 5.784   |    127.8    |  38.162  |   2538.5    |  76.959  |   8741.7    |
+|          `liblinear`          | 6.473   |    137.4    |  41.096  |   5765.0    |  84.259  |   20205.0   |
+<!-- prettier-ignore-end -->
+
+---
+
+#### Zero-copy Matrix Access
+
+```rust
+use numpy::PyReadonlyArray2;
+
+fn dense_to_slices<'a>(arr: &'a PyReadonlyArray2<f64>) -> Vec<&'a [f64]> {
+    let n = arr.shape()[1];
+    arr.as_slice().unwrap().chunks(n).collect()
+}
+```
+
+<aside class="notes">
+
+<aside>
+
+--
+
+#### Zero-copy Matrix Access
+
+```rust
+pub struct Problem<'a> {
+    l: usize,           // number of training data
+    n: usize,           // number of features
+    y: &'a [f64],       // array of target values
+    x: Vec<&'a [f64]>,  // array of training vectors
+}
+```
+
+---
+
+## Project Timeline
+
+- Porting `liblinear` subroutine to Rust (~4 days)
+- Develop Python binding (~3 days)
+
+---
+
+### PyO3 and Maturin
+
+- PyO3 provides macros for wrapping Rust functions inside a Python module
+
+```Rust
+#[pymodule]
+fn lisbon(_py: Python, m: &PyModule) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(set_verbosity_wrap, m)?)?;
+    #[pyfn(m)]
+    fn train_wrap<'py>(
+        ...
+```
+
+--
+
+### PyO3 and Maturin
+
+- Maturin makes Python packaging and publishing incredibly easy
+
+```bash
+maturin develop --release # build and install as Python library
+
+# GitHub action to publish to PyPI
+# 3 OS x 5 Python versions
+maturin publish --skip-existing -i python -u __token__ -p ${{ secrets.MATURIN_PASSWORD }}
+```
+
+--
+
+### Drop-in Replacement
+
+```python
+from sklearn import svm
+import lisbon
+
+# essentially monkey patch as following
+# svm._base.liblinear = lisbon
+```
+
+<aside class="notes">
+To substitute liblinear with lisbon in sklearn only requires minimal code changes. Here you can see we monkey-patched the svm's liblinear library with lisbon. In the future, I plan on doing this during the lisbon's import process. So all you have to do is to import the lisbon package and it will check for svm function call arguments and cpu architecture then patch the library at run time.
+</aside>
+
+---
+
+### Final Remark
+
+- The module is purely in Rust (with a little Python for auto-patching), no need for Cython as glue code {.fragment .fade-in}
+- Speed up is not due to Rust {.fragment .fade-in}
+- ...but the language and tooling makes development process efficient {.fragment .fade-in}
+
+<aside class="notes">
+So technically the speed up was not because of Rust, I couldn't lie about that. But the language gave me more safety guarantee and the confidence to optimise the code.
+
+</aside>
+
+---
+
+## Links
+
+- Repository: [github.com/arabesqueai/lisbon](https://github.com/arabesqueai/lisbon)
+
+- Medium blog post: [tinyurl.com/lisbon-svm](https://tinyurl.com/lisbon-svm)

@@ -80,6 +80,10 @@ Note: Hi everyone, today I'll talk about a project I completed last year, during
 
 ---
 
+# Introduction
+
+--
+
 ## Background
 
 <ul>
@@ -101,7 +105,7 @@ And I realised there were some opportunities for optimisation.
 
 So without further ado, I'll present you the project outcome first.
 
----
+--
 
 ## Lisbon
 
@@ -121,12 +125,13 @@ And finally, we achieved a speed up of 20-30%.
 
 ### How's it faster
 
-<ol>
-<li class="fragment fade-in"><code>liblinear</code> uses sparse matrix representation for the dot/norm operations which is inefficient for our use case</li>
-<li class="fragment fade-in">By reading NumPy's underneath C array directly there’s no need to copy/duplicate data so saves memory</li>
-<p></p>
-<li class="fragment fade-in">Specialised. Some array reads and computations are optimised away as we know the values for our specific problem</li>
-</ol>
+<ul>
+<li class="fragment fade-in">20-30% speed up:</li>
+<ul><li class="fragment fade-in"><code>liblinear</code> uses sparse matrix representation for the dot/norm operations which is inefficient for our use case</li>
+<li class="fragment fade-in">Specialised. Some array reads and computations are optimised away as we know the values for our specific problem</li></ul>
+<li class="fragment fade-in">>50% memory saving:</li>
+<ul><li class="fragment fade-in">By reading NumPy's underlying C array directly as dense representation there’s no need to copy/duplicate data so saves memory</li></ul>
+</ul>
 
 Note: Lisbon is faster basically because of these three points
 
@@ -136,6 +141,10 @@ I will explain where the memory saving and speed up come from in the rest of the
 It won't be deeply technical and I will spend some time talk about this porting and tooling experience as well.
 
 ---
+
+# Optimisation and Results
+
+--
 
 ## Support Vector Machine
 
@@ -149,7 +158,7 @@ Essentially, SVM is a classification technique.
 
 We have datapoints belong to differnt classes and our goal is to find the line that separates the points into two groups.
 
----
+--
 
 ### Matrix Operations
 
@@ -238,9 +247,40 @@ We have datapoints belong to differnt classes and our goal is to find the line t
   </tr>
 </table>
 
-<li class="fragment fade-in" data-fragment-index="2">Sparse matrix representation (<code>liblinear</code>)</li>
+--
 
-<table class="fragment fade-in" data-fragment-index="2">
+### Matrix Representation in Memory
+
+<table>
+      <tr>
+        <td style="background-color:lightyellow">a<sub>11</sub></td>
+        <td style="background-color:lightyellow">0</td>
+        <td style="background-color:lightyellow">0</td>
+        <td style="background-color:lightyellow">0</td>
+      </tr>
+      <tr>
+        <td style="background-color:lightblue">0</td>
+        <td style="background-color:lightblue">0</td>
+        <td style="background-color:lightblue">0</td>
+        <td style="background-color:lightblue">0</td>
+      </tr>
+      <tr>
+        <td style="background-color:lightgreen">0</td>
+        <td style="background-color:lightgreen">0</td>
+        <td style="background-color:lightgreen">0</td>
+        <td style="background-color:lightgreen">0</td>
+      </tr>
+      <tr>
+        <td style="background-color:lightpink">0</td>
+        <td style="background-color:lightpink">0</td>
+        <td style="background-color:lightpink">0</td>
+        <td style="background-color:lightpink">a<sub>44</sub></td>
+      </tr>
+    </table>
+    
+<li class="fragment fade-in" data-fragment-index="1">Sparse matrix representation (<code>liblinear</code>)</li>
+
+<table class="fragment fade-in" data-fragment-index="1">
   <tr>
     <td style="background-color:lightyellow">(1, a<sub>11</sub>)</td>
     <td style="background-color:lightyellow">(-1, null)</td>
@@ -251,6 +291,7 @@ We have datapoints belong to differnt classes and our goal is to find the line t
   </tr>
 </table>
 </ul>
+
 --
 
 ### Matrix Representation in Memory
@@ -261,6 +302,61 @@ We have datapoints belong to differnt classes and our goal is to find the line t
 <li class="fragment fade-in">This takes time and a lot of additional memory (~1.5x because of the index)</li>
 <li class="fragment fade-in"><code>lisbon</code> reads the memory directly without making a copy, Rust/PyO3 enforces compile time guarantee that the memory is read-only</li>
 </ul>
+
+--
+
+### SIMD and Cache Efficiency
+
+<ul>
+<li class="fragment fade-in">Single Instruction Multiple Data </li>
+<li class="fragment fade-in">Calculate multiple operations simultaneously </li>
+<li class="fragment fade-in">Dense representation allows SIMD operations (via auto-vectorisation) </li>
+<li class="fragment fade-in">Row-major densely packed C-style matrix representation allows efficient use of cache lines </li>
+</ul>
+
+--
+
+## Benchmark
+
+- 20-30% speed up and >50% reduction in memory usage
+  - small: 48842 rows of data and 14 features.
+  - medium: 210447 rows of data and 1000 features.
+  - large: 747922 rows of data and 1000 features.
+
+<!-- prettier-ignore-start -->
+|                               |  Small               || Medium                ||   Large               ||
+| :---------------------------: |:------: | :---------: |:-------: | :---------: | :------: | :---------: |
+|            library            |time (s) | memory (MB) | time (s) | memory (MB) | time (s) | memory (MB) |
+|  `lisbon` with `cpu=native`   | 3.725   |    127.9    |  25.569  |   2539.4    |  50.791  |   8742.1    |
+| `lisbon` without `cpu=native` | 5.784   |    127.8    |  38.162  |   2538.5    |  76.959  |   8741.7    |
+|          `liblinear`          | 6.473   |    137.4    |  41.096  |   5765.0    |  84.259  |   20205.0   |
+<!-- prettier-ignore-end -->
+
+--
+
+#### Zero-copy Matrix Access
+
+```rust
+use numpy::PyReadonlyArray2;
+
+fn dense_to_slices<'a>(arr: &'a PyReadonlyArray2<f64>) -> Vec<&'a [f64]> {
+    let n = arr.shape()[1];
+    arr.as_slice().unwrap().chunks(n).collect()
+}
+```
+
+--
+
+#### Zero-copy Matrix Access
+
+```rust
+pub struct Problem<'a> {
+    l: usize,           // number of training data
+    n: usize,           // number of features
+    y: &'a [f64],       // array of target values
+    x: Vec<&'a [f64]>,  // array of training vectors
+}
+```
 
 --
 
@@ -289,68 +385,18 @@ impl BLASOperator {
 }
 ```
 
---
-
-### SIMD and Cache Efficiency
-
-<ul>
-<li class="fragment fade-in">Single Instruction Multiple Data </li>
-<li class="fragment fade-in">Calculate multiple operations simultaneously </li>
-<li class="fragment fade-in">Dense representation allows SIMD operations (via auto-vectorisation) </li>
-<li class="fragment fade-in">Row-major densely packed C-style matrix representation allows efficient use of cache lines </li>
-</ul>
-
 ---
 
-## Benchmark
-
-- small: 48842 rows of data and 14 features.
-- medium: 210447 rows of data and 1000 features.
-- large: 747922 rows of data and 1000 features.
-
-<!-- prettier-ignore-start -->
-|                               |  Small               || Medium                ||   Large               ||
-| :---------------------------: |:------: | :---------: |:-------: | :---------: | :------: | :---------: |
-|            library            |time (s) | memory (MB) | time (s) | memory (MB) | time (s) | memory (MB) |
-|  `lisbon` with `cpu=native`   | 3.725   |    127.9    |  25.569  |   2539.4    |  50.791  |   8742.1    |
-| `lisbon` without `cpu=native` | 5.784   |    127.8    |  38.162  |   2538.5    |  76.959  |   8741.7    |
-|          `liblinear`          | 6.473   |    137.4    |  41.096  |   5765.0    |  84.259  |   20205.0   |
-<!-- prettier-ignore-end -->
-
----
-
-#### Zero-copy Matrix Access
-
-```rust
-use numpy::PyReadonlyArray2;
-
-fn dense_to_slices<'a>(arr: &'a PyReadonlyArray2<f64>) -> Vec<&'a [f64]> {
-    let n = arr.shape()[1];
-    arr.as_slice().unwrap().chunks(n).collect()
-}
-```
+# Rust Tooling and Experience
 
 --
-
-#### Zero-copy Matrix Access
-
-```rust
-pub struct Problem<'a> {
-    l: usize,           // number of training data
-    n: usize,           // number of features
-    y: &'a [f64],       // array of target values
-    x: Vec<&'a [f64]>,  // array of training vectors
-}
-```
-
----
 
 ## Project Timeline
 
 - Porting `liblinear` subroutine to Rust (~4 days)
 - Develop Python binding (~3 days)
 
----
+--
 
 ### PyO3 and Maturin
 
@@ -397,8 +443,8 @@ import lisbon
 
 <ul>
 <li class="fragment fade-in">The module is purely in Rust (with a little Python for auto-patching), no need for Cython as glue code </li>
-<li class="fragment fade-in">Speed up is not due to Rust </li>
-<li class="fragment fade-in">...but the language and tooling makes development process efficient </li>
+<li class="fragment fade-in">20-30% speed up with >50% reduction in memory usage</li>
+<li class="fragment fade-in">Rust and the community made this a fun experience</li>
 </ul>
 
 Note: So technically the speed up was not because of Rust, I couldn't lie about that. But the language gave me more safety guarantee and the confidence to optimise the code.
@@ -407,6 +453,8 @@ Note: So technically the speed up was not because of Rust, I couldn't lie about 
 
 ## Links
 
-- Repository: [github.com/arabesqueai/lisbon](https://github.com/arabesqueai/lisbon)
+- Try our library: [github.com/arabesqueai/lisbon](https://github.com/arabesqueai/lisbon)
+
+  - MIT/Apache licensed
 
 - Medium blog post: [tinyurl.com/lisbon-svm](https://tinyurl.com/lisbon-svm)
